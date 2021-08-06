@@ -53,6 +53,7 @@
 
 
 /* Variant tags for strings */
+/* 短字符与长字符 */
 #define LUA_TSHRSTR (LUA_TSTRING | (0 << 4))  /* short strings */
 #define LUA_TLNGSTR (LUA_TSTRING | (1 << 4))  /* long strings */
 
@@ -102,6 +103,7 @@ typedef union Value Value;
 ** an actual value plus a tag with its type.
 */
 
+/* 包括实际存储的值部分,以及类型 */
 #define TValuefields    Value value_; int tt_
 
 typedef struct lua_TValue TValue;
@@ -122,6 +124,7 @@ typedef struct lua_TValue TValue;
 #define novariant(x)    ((x) & 0x0F)
 
 /* type tag of a TValue (bits 0-3 for tags + variant bits 4-5) */
+/* 获取TValue的type标记 */
 #define ttype(o)    (rttype(o) & 0x3F)
 
 /* type tag of a TValue with no variants (bits 0-3) */
@@ -154,6 +157,8 @@ typedef struct lua_TValue TValue;
 #define nvalue(o)   check_exp(ttisnumber(o), num_(o))
 #define gcvalue(o)  check_exp(iscollectable(o), val_(o).gc)
 #define pvalue(o)   check_exp(ttislightuserdata(o), val_(o).p)
+
+/* 访问对应的值 */
 #define rawtsvalue(o)   check_exp(ttisstring(o), &val_(o).gc->ts)
 #define tsvalue(o)  (&rawtsvalue(o)->tsv)
 #define rawuvalue(o)    check_exp(ttisuserdata(o), &val_(o).gc->u)
@@ -188,6 +193,7 @@ typedef struct lua_TValue TValue;
 #define setnvalue(obj,x) \
   { TValue *io=(obj); num_(io)=(x); settt_(io, LUA_TNUMBER); }
 
+/* 将值设置为空 */
 #define setnilvalue(obj) settt_(obj, LUA_TNIL)
 
 #define setfvalue(obj,x) \
@@ -385,7 +391,7 @@ typedef struct lua_TValue TValue;
 ** =======================================================
 */
 
-
+/* 注意这里的值,是一个union,可以根据type做转换 */
 union Value
 {
     GCObject *gc;    /* collectable objects */
@@ -558,7 +564,7 @@ typedef union Closure
 ** Tables
 */
 
-typedef union TKey
+typedef union TKey /* 键 */
 {
     struct
     {
@@ -568,7 +574,7 @@ typedef union TKey
     TValue tvk;
 } TKey;
 
-
+/* 节点 */
 typedef struct Node
 {
     TValue i_val;
@@ -580,13 +586,14 @@ typedef struct Table
 {
     CommonHeader;
     lu_byte flags;  /* 1<<p means tagmethod(p) is not present */
+    /* 由于哈希表的大小一定为2的整数次幂,所以这里lsizenode表示的是幂次,而不是实际大小 */
     lu_byte lsizenode;  /* log2 of size of `node' array */
     int sizearray;  /* size of `array' array */
-    TValue *array;  /* array part */
+    TValue *array;  /* array part */ /* hash表数组部分 */
     Node *node;
     Node *lastfree;  /* any free position is before this position */
-    struct Table *metatable;
-    GCObject *gclist;
+    struct Table *metatable; /* 元数据 */
+    GCObject *gclist; /* 用于垃圾收集 */
 } Table;
 
 

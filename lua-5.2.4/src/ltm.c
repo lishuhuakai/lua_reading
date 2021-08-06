@@ -32,6 +32,7 @@ LUAI_DDEF const char *const luaT_typenames_[LUA_TOTALTAGS] =
 
 void luaT_init (lua_State *L)
 {
+    /* 元方法的名字 */
     static const char *const luaT_eventname[] =    /* ORDER TM */
     {
         "__index", "__newindex",

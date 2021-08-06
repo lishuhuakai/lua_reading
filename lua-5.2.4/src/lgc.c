@@ -222,6 +222,11 @@ void luaC_checkupvalcolor (global_State *g, UpVal *uv)
 ** it to '*list'. 'offset' tells how many bytes to allocate before the
 ** object itself (used only by states).
 */
+/* 创建新的object
+ * @param tt 类型
+ * @param sz 大小
+ * @param list 链表
+ */
 GCObject *luaC_newobj (lua_State *L, int tt, size_t sz, GCObject **list,
                        int offset)
 {

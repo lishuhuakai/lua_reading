@@ -444,6 +444,7 @@
 #define luai_nummul(L,a,b)  ((a)*(b))
 #define luai_numdiv(L,a,b)  ((a)/(b))
 #define luai_numunm(L,a)    (-(a))
+/* 判断值是否相等 */
 #define luai_numeq(a,b)     ((a)==(b))
 #define luai_numlt(L,a,b)   ((a)<(b))
 #define luai_numle(L,a,b)   ((a)<=(b))

@@ -77,6 +77,7 @@ static const Node dummynode_ =
 
 /*
 ** hash for lua_Numbers
+** 对数组做hash
 */
 static Node *hashnum (const Table *t, lua_Number n)
 {
@@ -101,9 +102,9 @@ static Node *mainposition (const Table *t, const TValue *key)
 {
     switch (ttype(key))
     {
-        case LUA_TNUMBER:
+        case LUA_TNUMBER: /* 数字 */
             return hashnum(t, nvalue(key));
-        case LUA_TLNGSTR:
+        case LUA_TLNGSTR: /* 短字符串,内部做了唯一化 */
         {
             TString *s = rawtsvalue(key);
             if (s->tsv.extra == 0)    /* no hash? */
@@ -115,7 +116,7 @@ static Node *mainposition (const Table *t, const TValue *key)
         }
         case LUA_TSHRSTR:
             return hashstr(t, rawtsvalue(key));
-        case LUA_TBOOLEAN:
+        case LUA_TBOOLEAN: /* bool值 */
             return hashboolean(t, bvalue(key));
         case LUA_TLIGHTUSERDATA:
             return hashpointer(t, pvalue(key));
@@ -150,16 +151,18 @@ static int arrayindex (const TValue *key)
 ** elements in the array part, then elements in the hash part. The
 ** beginning of a traversal is signaled by -1.
 */
+/* 根据key找到索引 */
 static int findindex (lua_State *L, Table *t, StkId key)
 {
     int i;
     if (ttisnil(key)) return -1;  /* first iteration */
     i = arrayindex(key);
+    /* 在array中找 */
     if (0 < i && i <= t->sizearray)  /* is `key' inside array part? */
         return i-1;  /* yes; that's the index (corrected to C) */
     else
     {
-        Node *n = mainposition(t, key);
+        Node *n = mainposition(t, key); /*  否则在hash部分找   */
         for (;;)    /* check whether `key' is somewhere in the chain */
         {
             /* key may be dead already, but it is ok to use it in `next' */
@@ -178,7 +181,9 @@ static int findindex (lua_State *L, Table *t, StkId key)
     }
 }
 
-
+/* 实现迭代器
+ * 传入上一个键,返回下一个键值对
+ */
 int luaH_next (lua_State *L, Table *t, StkId key)
 {
     int i = findindex(L, t, key);  /* find original element */
@@ -186,7 +191,7 @@ int luaH_next (lua_State *L, Table *t, StkId key)
     {
         if (!ttisnil(&t->array[i]))    /* a non-nil value? */
         {
-            setnvalue(key, cast_num(i+1));
+            setnvalue(key, cast_num(i+1)); /* key的值设置为num */
             setobj2s(L, key+1, &t->array[i]);
             return 1;
         }
@@ -210,12 +215,16 @@ int luaH_next (lua_State *L, Table *t, StkId key)
 ** ==============================================================
 */
 
-
+/* 计算出不低于50%利用率的情况下,数组应该维持多少空间
+ * @param nums 数组
+ * @param narray 数组个数
+ */
 static int computesizes (int nums[], int *narray)
 {
     int i;
     int twotoi;  /* 2^i */
     int a = 0;  /* number of elements smaller than 2^i */
+    /* 需要放置到数组部分的元素的个数 */
     int na = 0;  /* number of elements to go to array part */
     int n = 0;  /* optimal size for array part */
     for (i = 0, twotoi = 1; twotoi/2 < *narray; i++, twotoi *= 2)
@@ -231,7 +240,7 @@ static int computesizes (int nums[], int *narray)
         }
         if (a == *narray) break;  /* all elements already counted */
     }
-    *narray = n;
+    *narray = n; /* 记录下个数 */
     lua_assert(*narray/2 <= na && na <= *narray);
     return na;
 }
@@ -249,7 +258,7 @@ static int countint (const TValue *key, int *nums)
         return 0;
 }
 
-
+/* 统计数组中有多少个有效的键值对    */
 static int numusearray (const Table *t, int *nums)
 {
     int lg;
@@ -272,13 +281,13 @@ static int numusearray (const Table *t, int *nums)
             if (!ttisnil(&t->array[i-1]))
                 lc++;
         }
-        nums[lg] += lc;
+        nums[lg] += lc; /* 这里统计的是(2^(lg-1), 2^lg]范围内有效键值对的个数 */
         ause += lc;
     }
     return ause;
 }
 
-
+/* 统计表中hash部分有效键值对的个数 */
 static int numusehash (const Table *t, int *nums, int *pnasize)
 {
     int totaluse = 0;  /* total number of elements */
@@ -297,7 +306,7 @@ static int numusehash (const Table *t, int *nums, int *pnasize)
     return totaluse;
 }
 
-
+/* 重新分配内存 */
 static void setarrayvector (lua_State *L, Table *t, int size)
 {
     int i;
@@ -322,8 +331,8 @@ static void setnodevector (lua_State *L, Table *t, int size)
         lsize = luaO_ceillog2(size);
         if (lsize > MAXBITS)
             luaG_runerror(L, "table overflow");
-        size = twoto(lsize);
-        t->node = luaM_newvector(L, size, Node);
+        size = twoto(lsize); /* 2^lsize -> size */
+        t->node = luaM_newvector(L, size, Node); /* 创建新的vector */
         for (i=0; i<size; i++)
         {
             Node *n = gnode(t, i);
@@ -332,21 +341,26 @@ static void setnodevector (lua_State *L, Table *t, int size)
             setnilvalue(gval(n));
         }
     }
-    t->lsizenode = cast_byte(lsize);
+    t->lsizenode = cast_byte(lsize); /* 这里强制转换 */
     t->lastfree = gnode(t, size);  /* all positions are free */
 }
 
-
+/* 重新调整数组部分和哈希部分
+ * @param nasize 数组部分大小
+ * @param nhsize hash部分大小
+ */
 void luaH_resize (lua_State *L, Table *t, int nasize, int nhsize)
 {
     int i;
     int oldasize = t->sizearray;
     int oldhsize = t->lsizenode;
     Node *nold = t->node;  /* save old hash ... */
+    /* array有所增长 */
     if (nasize > oldasize)  /* array part must grow? */
         setarrayvector(L, t, nasize);
     /* create new hash part with appropriate size */
     setnodevector(L, t, nhsize);
+    /* 大小存在缩减 */
     if (nasize < oldasize)    /* array part must shrink? */
     {
         t->sizearray = nasize;
@@ -381,7 +395,10 @@ void luaH_resizearray (lua_State *L, Table *t, int nasize)
     luaH_resize(L, t, nasize, nsize);
 }
 
-
+/* 增长hash表
+ * 统计当前table中到底有多少有效键值对,以及决定数组部分需要开辟多少空间,其原则是
+ * 最终数组部分的利用率需要超过50%
+ */
 static void rehash (lua_State *L, Table *t, const TValue *ek)
 {
     int nasize, na;
@@ -407,7 +424,7 @@ static void rehash (lua_State *L, Table *t, const TValue *ek)
 ** }=============================================================
 */
 
-
+/* 创建表 */
 Table *luaH_new (lua_State *L)
 {
     Table *t = &luaC_newobj(L, LUA_TTABLE, sizeof(Table), NULL, 0)->h;
@@ -419,7 +436,7 @@ Table *luaH_new (lua_State *L)
     return t;
 }
 
-
+/* 表的释放 */
 void luaH_free (lua_State *L, Table *t)
 {
     if (!isdummy(t->node))
@@ -449,6 +466,7 @@ static Node *getfreepos (Table *t)
 ** put new key in its main position; otherwise (colliding node is in its main
 ** position), new key goes to an empty position.
 */
+/* 插入一个新的key到hash表中 */
 TValue *luaH_newkey (lua_State *L, Table *t, const TValue *key)
 {
     Node *mp;
@@ -494,12 +512,13 @@ TValue *luaH_newkey (lua_State *L, Table *t, const TValue *key)
 
 /*
 ** search function for integers
+** 根据整数来查找TValue
 */
 const TValue *luaH_getint (Table *t, int key)
 {
     /* (1 <= key && key <= t->sizearray) */
     if (cast(unsigned int, key-1) < cast(unsigned int, t->sizearray))
-        return &t->array[key-1];
+        return &t->array[key-1]; /* 直接返回数组中的值 */
     else
     {
         lua_Number nk = cast_num(key);
@@ -511,13 +530,14 @@ const TValue *luaH_getint (Table *t, int key)
             else n = gnext(n);
         }
         while (n);
-        return luaO_nilobject;
+        return luaO_nilobject; /* 返回NULL */
     }
 }
 
 
 /*
 ** search function for short strings
+** 根据短字符串来查找TValue
 */
 const TValue *luaH_getstr (Table *t, TString *key)
 {
@@ -536,20 +556,21 @@ const TValue *luaH_getstr (Table *t, TString *key)
 
 /*
 ** main search function
+** 根据key来查找
 */
 const TValue *luaH_get (Table *t, const TValue *key)
 {
     switch (ttype(key))
     {
-        case LUA_TSHRSTR:
+        case LUA_TSHRSTR: /* 如果值是string */
             return luaH_getstr(t, rawtsvalue(key));
         case LUA_TNIL:
             return luaO_nilobject;
-        case LUA_TNUMBER:
+        case LUA_TNUMBER: /* 值为数字 */
         {
             int k;
             lua_Number n = nvalue(key);
-            lua_number2int(k, n);
+            lua_number2int(k, n); /* 转换为int类型 */
             if (luai_numeq(cast_num(k), n)) /* index is int? */
                 return luaH_getint(t, k);  /* use specialized version */
             /* else go through */
@@ -592,10 +613,10 @@ void luaH_setint (lua_State *L, Table *t, int key, TValue *value)
     else
     {
         TValue k;
-        setnvalue(&k, cast_num(key));
+        setnvalue(&k, cast_num(key)); /* 设置key */
         cell = luaH_newkey(L, t, &k);
     }
-    setobj2t(L, cell, value);
+    setobj2t(L, cell, value); /* 将值存储起来 */
 }
 
 
