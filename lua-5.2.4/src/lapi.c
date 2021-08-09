@@ -638,7 +638,9 @@ LUA_API const char *lua_pushfstring (lua_State *L, const char *fmt, ...)
     return ret;
 }
 
-
+/* 构建c闭包
+ * @param n upvalue的个数
+ */
 LUA_API void lua_pushcclosure (lua_State *L, lua_CFunction fn, int n)
 {
     lua_lock(L);
@@ -653,10 +655,11 @@ LUA_API void lua_pushcclosure (lua_State *L, lua_CFunction fn, int n)
         api_check(L, n <= MAXUPVAL, "upvalue index too large");
         luaC_checkGC(L);
         cl = luaF_newCclosure(L, n);
-        cl->c.f = fn;
+        cl->c.f = fn; /* 记录下函数 */
         L->top -= n;
         while (n--)
-            setobj2n(L, &cl->c.upvalue[n], L->top + n);
+            setobj2n(L, &cl->c.upvalue[n], L->top + n); /* 将upvalue的值记录下来 */
+
         setclCvalue(L, L->top, cl);
     }
     api_incr_top(L);

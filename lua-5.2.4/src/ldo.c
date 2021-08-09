@@ -151,7 +151,7 @@ int luaD_rawrunprotected (lua_State *L, Pfunc f, void *ud)
 
 /* }====================================================== */
 
-
+/* 校正堆栈 */
 static void correctstack (lua_State *L, TValue *oldstack)
 {
     CallInfo *ci;
@@ -704,7 +704,7 @@ static void checkmode (lua_State *L, const char *mode, const char *x)
     }
 }
 
-
+/* 将加载进内存的函数原型和upvalue绑定起来 */
 static void f_parser (lua_State *L, void *ud)
 {
     int i;

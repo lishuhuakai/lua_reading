@@ -73,7 +73,7 @@ typedef struct CallInfo   /* 调用信息 */
     StkId top;  /* top for this function */
     struct CallInfo *previous, *next;  /* dynamic call link */
     short nresults;  /* expected number of results from this function */
-    lu_byte callstatus;
+    lu_byte callstatus;/* 状态标识 */
     ptrdiff_t extra;
     union
     {

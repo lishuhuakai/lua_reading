@@ -27,7 +27,9 @@ Closure *luaF_newCclosure (lua_State *L, int n)
     return c;
 }
 
-
+/* 创建一个新的lua闭包
+ * @param n upvalue的个数
+ */
 Closure *luaF_newLclosure (lua_State *L, int n)
 {
     Closure *c = &luaC_newobj(L, LUA_TLCL, sizeLclosure(n), NULL, 0)->cl;
@@ -46,13 +48,14 @@ UpVal *luaF_newupval (lua_State *L)
     return uv;
 }
 
-
+/* 将数据栈上的值转换为upvalue */
 UpVal *luaF_findupval (lua_State *L, StkId level)
 {
     global_State *g = G(L);
     GCObject **pp = &L->openupval;
     UpVal *p;
     UpVal *uv;
+    /* 首先在当前的openupval链表中寻找是否已经转换过,如果有就复用 */
     while (*pp != NULL && (p = gco2uv(*pp))->v >= level)
     {
         GCObject *o = obj2gco(p);
@@ -93,7 +96,7 @@ void luaF_freeupval (lua_State *L, UpVal *uv)
     luaM_free(L, uv);  /* free upvalue */
 }
 
-
+/* 退出某一层堆栈 */
 void luaF_close (lua_State *L, StkId level)
 {
     UpVal *uv;

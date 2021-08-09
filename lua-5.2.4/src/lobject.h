@@ -19,7 +19,9 @@
 /*
 ** Extra tags for non-values
 */
+/* 函数原型 */
 #define LUA_TPROTO  LUA_NUMTAGS
+/* upvalue */
 #define LUA_TUPVAL  (LUA_NUMTAGS+1)
 #define LUA_TDEADKEY    (LUA_NUMTAGS+2)
 
@@ -224,12 +226,12 @@ typedef struct lua_TValue TValue;
   { TValue *io=(obj); \
     val_(io).gc=cast(GCObject *, (x)); settt_(io, ctb(LUA_TTHREAD)); \
     checkliveness(G(L),io); }
-
+/* lua闭包 */
 #define setclLvalue(L,obj,x) \
   { TValue *io=(obj); \
     val_(io).gc=cast(GCObject *, (x)); settt_(io, ctb(LUA_TLCL)); \
     checkliveness(G(L),io); }
-
+/* c闭包 */
 #define setclCvalue(L,obj,x) \
   { TValue *io=(obj); \
     val_(io).gc=cast(GCObject *, (x)); settt_(io, ctb(LUA_TCCL)); \
@@ -407,7 +409,7 @@ struct lua_TValue
     TValuefields;
 };
 
-
+/* 对TValue的引用 */
 typedef TValue *StkId;  /* index to stack elements */
 
 
@@ -452,6 +454,7 @@ typedef union Udata
 } Udata;
 
 
+/* Upvalue指的是在闭包生成的那一刻,与函数原型绑定在一起的那些外部变量,这些变量原本是上一层函数的局部变量 */
 
 /*
 ** Description of an upvalue for function prototypes
@@ -477,17 +480,21 @@ typedef struct LocVar
 
 
 /*
-** Function Prototypes
+** Function Prototypes 函数原型
 */
 typedef struct Proto
 {
     CommonHeader;
+    /* 被函数使用的常量 */
     TValue *k;  /* constants used by the function */
     Instruction *code;
+    /* 在函数中定义的函数 */
     struct Proto **p;  /* functions defined inside the function */
     int *lineinfo;  /* map from opcodes to source lines (debug information) */
+    /* 局部变量的信息 */
     LocVar *locvars;  /* information about local variables (debug information) */
     Upvaldesc *upvalues;  /* upvalue information */
+    /* 闭包 */
     union Closure *cache;  /* last created closure with this prototype */
     TString  *source;  /* used for debug information */
     int sizeupvalues;  /* size of 'upvalues' */
@@ -501,17 +508,19 @@ typedef struct Proto
     GCObject *gclist;
     lu_byte numparams;  /* number of fixed parameters */
     lu_byte is_vararg;
+    /* 栈的深度 */
     lu_byte maxstacksize;  /* maximum stack used by this function */
 } Proto;
 
 
 
 /*
-** Lua Upvalues
+** Lua Upvalues -- upvalue
 */
 typedef struct UpVal
 {
     CommonHeader;
+    /* 指针,引用一个Lua值变量 */
     TValue *v;  /* points to stack or to its own value */
     union
     {
@@ -526,12 +535,12 @@ typedef struct UpVal
 
 
 /*
-** Closures
+** Closures -- 闭包
 */
-
 #define ClosureHeader \
     CommonHeader; lu_byte nupvalues; GCObject *gclist
 
+/* c闭包 */
 typedef struct CClosure
 {
     ClosureHeader;
@@ -540,6 +549,7 @@ typedef struct CClosure
 } CClosure;
 
 
+/* lua闭包 */
 typedef struct LClosure
 {
     ClosureHeader;
@@ -548,6 +558,7 @@ typedef struct LClosure
 } LClosure;
 
 
+/* 闭包 */
 typedef union Closure
 {
     CClosure c;

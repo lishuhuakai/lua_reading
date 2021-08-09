@@ -144,11 +144,11 @@ static void stack_init (lua_State *L1, lua_State *L)
     int i;
     CallInfo *ci;
     /* initialize stack array */
-    L1->stack = luaM_newvector(L, BASIC_STACK_SIZE, TValue);
+    L1->stack = luaM_newvector(L, BASIC_STACK_SIZE, TValue); /* 创建数组 */
     L1->stacksize = BASIC_STACK_SIZE;
     for (i = 0; i < BASIC_STACK_SIZE; i++)
         setnilvalue(L1->stack + i);  /* erase new stack */
-    L1->top = L1->stack;
+    L1->top = L1->stack; /* 指向栈顶 */
     L1->stack_last = L1->stack + L1->stacksize - EXTRA_STACK;
     /* initialize first ci */
     ci = &L1->base_ci;
@@ -160,7 +160,7 @@ static void stack_init (lua_State *L1, lua_State *L)
     L1->ci = ci;
 }
 
-
+/* 堆栈的释放 */
 static void freestack (lua_State *L)
 {
     if (L->stack == NULL)
