@@ -28,8 +28,9 @@ int luaZ_fill (ZIO *z)
     lua_lock(L);
     if (buff == NULL || size == 0)
         return EOZ;
+    /* 读取的数据的大小 */
     z->n = size - 1;  /* discount char being returned */
-    z->p = buff;
+    z->p = buff; /* 记录下数据 */
     return cast_uchar(*(z->p++));
 }
 
@@ -37,14 +38,18 @@ int luaZ_fill (ZIO *z)
 void luaZ_init (lua_State *L, ZIO *z, lua_Reader reader, void *data)
 {
     z->L = L;
-    z->reader = reader;
-    z->data = data;
+    z->reader = reader; /* 读取方法 */
+    z->data = data; /* 数据 */
     z->n = 0;
     z->p = NULL;
 }
 
 
 /* --------------------------------------------------------------- read --- */
+/* 从ZIO中读取数据至缓冲区
+ * @param b 缓冲区
+ * @param n 缓冲区大小
+ */
 size_t luaZ_read (ZIO *z, void *b, size_t n)
 {
     while (n)
@@ -71,6 +76,7 @@ size_t luaZ_read (ZIO *z, void *b, size_t n)
 }
 
 /* ------------------------------------------------------------------------ */
+/* buff作为缓冲区 */
 char *luaZ_openspace (lua_State *L, Mbuffer *buff, size_t n)
 {
     if (n > buff->buffsize)

@@ -49,7 +49,7 @@ static const char *const luaX_tokens [] =
 
 static l_noret lexerror (LexState *ls, const char *msg, int token);
 
-
+/* 将字符保存起来 */
 static void save (LexState *ls, int c)
 {
     Mbuffer *b = ls->buff;
@@ -61,10 +61,10 @@ static void save (LexState *ls, int c)
         newsize = luaZ_sizebuffer(b) * 2;
         luaZ_resizebuffer(ls->L, b, newsize);
     }
-    b->buffer[luaZ_bufflen(b)++] = cast(char, c);
+    b->buffer[luaZ_bufflen(b)++] = cast(char, c); /* 将值存储起来 */
 }
 
-
+/* 词法分析器初始化 */
 void luaX_init (lua_State *L)
 {
     int i;
@@ -133,13 +133,17 @@ l_noret luaX_syntaxerror (LexState *ls, const char *msg)
 ** it will not be collected until the end of the function's compilation
 ** (by that time it should be anchored in function's prototype)
 */
+/* 创建一个新的string
+ * @param str 字符串
+ * @param l 字符串的长度
+ */
 TString *luaX_newstring (LexState *ls, const char *str, size_t l)
 {
     lua_State *L = ls->L;
     TValue *o;  /* entry for `str' */
     TString *ts = luaS_newlstr(L, str, l);  /* create new string */
     setsvalue2s(L, L->top++, ts);  /* temporarily anchor it in stack */
-    o = luaH_set(L, ls->fs->h, L->top - 1);
+    o = luaH_set(L, ls->fs->h, L->top - 1); /* 存储值 */
     if (ttisnil(o))    /* not in use yet? (see 'addK') */
     {
         /* boolean value does not need GC barrier;
@@ -159,6 +163,7 @@ TString *luaX_newstring (LexState *ls, const char *str, size_t l)
 /*
 ** increment line number and skips newline sequence (any of
 ** \n, \r, \n\r, or \r\n)
+*  处理换行符
 */
 static void inclinenumber (LexState *ls)
 {
@@ -171,13 +176,13 @@ static void inclinenumber (LexState *ls)
         lexerror(ls, "chunk has too many lines", 0);
 }
 
-
+/* 设置输入源 */
 void luaX_setinput (lua_State *L, LexState *ls, ZIO *z, TString *source,
                     int firstchar)
 {
     ls->decpoint = '.';
     ls->L = L;
-    ls->current = firstchar;
+    ls->current = firstchar; /* 当前字符 */
     ls->lookahead.token = TK_EOS;  /* no look-ahead token */
     ls->z = z;
     ls->fs = NULL;
@@ -250,10 +255,13 @@ static void trydecpoint (LexState *ls, SemInfo *seminfo)
 ** this function is quite liberal in what it accepts, as 'luaO_str2d'
 ** will reject ill-formed numerals.
 */
+/* 解析数字
+ * 
+ */
 static void read_numeral (LexState *ls, SemInfo *seminfo)
 {
     const char *expo = "Ee";
-    int first = ls->current;
+    int first = ls->current; /* 第一个字符 */
     lua_assert(lisdigit(ls->current));
     save_and_next(ls);
     if (first == '0' && check_next(ls, "Xx"))  /* hexadecimal? */
@@ -276,13 +284,14 @@ static void read_numeral (LexState *ls, SemInfo *seminfo)
 /*
 ** skip a sequence '[=*[' or ']=*]' and return its number of '='s or
 ** -1 if sequence is malformed
+*  
 */
 static int skip_sep (LexState *ls)
 {
     int count = 0;
     int s = ls->current;
     lua_assert(s == '[' || s == ']');
-    save_and_next(ls);
+    save_and_next(ls); /* 保存并让让指针移动 */
     while (ls->current == '=')
     {
         save_and_next(ls);
@@ -378,7 +387,9 @@ static int readdecesc (LexState *ls)
     return r;
 }
 
-
+/* 读取字符串
+ *
+ */
 static void read_string (LexState *ls, int del, SemInfo *seminfo)
 {
     save_and_next(ls);  /* keep delimiter (for error messages) */
@@ -470,7 +481,10 @@ static void read_string (LexState *ls, int del, SemInfo *seminfo)
                                  luaZ_bufflen(ls->buff) - 2);
 }
 
-
+/* 解析下一个token 
+ * 返回token的类型
+ * 解析的值放入seminfo之中
+ */
 static int llex (LexState *ls, SemInfo *seminfo)
 {
     luaZ_resetbuffer(ls->buff);
@@ -489,7 +503,7 @@ static int llex (LexState *ls, SemInfo *seminfo)
             case '\t':
             case '\v':    /* spaces */
             {
-                next(ls);
+                next(ls); /* 直接过滤掉这个token */
                 break;
             }
             case '-':    /* '-' or '--' (comment) */
@@ -509,6 +523,7 @@ static int llex (LexState *ls, SemInfo *seminfo)
                         break;
                     }
                 }
+                /* 一直跳过,直到尾部 */
                 /* else short comment */
                 while (!currIsNewline(ls) && ls->current != EOZ)
                     next(ls);  /* skip until end of line (or end of file) */
@@ -528,11 +543,11 @@ static int llex (LexState *ls, SemInfo *seminfo)
             case '=':
             {
                 next(ls);
-                if (ls->current != '=') return '=';
+                if (ls->current != '=') return '='; /* 读取到一个= */
                 else
                 {
                     next(ls);
-                    return TK_EQ;
+                    return TK_EQ; 
                 }
             }
             case '<':
@@ -542,7 +557,7 @@ static int llex (LexState *ls, SemInfo *seminfo)
                 else
                 {
                     next(ls);
-                    return TK_LE;
+                    return TK_LE; /* 小于等于 */
                 }
             }
             case '>':
@@ -628,7 +643,7 @@ static int llex (LexState *ls, SemInfo *seminfo)
                         return ts->tsv.extra - 1 + FIRST_RESERVED;
                     else
                     {
-                        return TK_NAME;
+                        return TK_NAME; /* 解析出token */
                     }
                 }
                 else    /* single-char tokens (+ - / ...) */
@@ -642,7 +657,7 @@ static int llex (LexState *ls, SemInfo *seminfo)
     }
 }
 
-
+/* 读取下一个token */
 void luaX_next (LexState *ls)
 {
     ls->lastline = ls->linenumber;

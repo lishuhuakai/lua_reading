@@ -521,7 +521,7 @@ static int pmain (lua_State *L)
     return 1;
 }
 
-
+/* lua虚拟机 */
 int main (int argc, char **argv)
 {
     int status, result;

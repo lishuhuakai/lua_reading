@@ -133,7 +133,7 @@ LUA_API void lua_xmove (lua_State *from, lua_State *to, int n)
     lua_unlock(to);
 }
 
-
+/* 设置panic函数 */
 LUA_API lua_CFunction lua_atpanic (lua_State *L, lua_CFunction panicf)
 {
     lua_CFunction old;
@@ -558,7 +558,7 @@ LUA_API void lua_pushnumber (lua_State *L, lua_Number n)
     lua_unlock(L);
 }
 
-
+/* 压栈,压入一个数字 */
 LUA_API void lua_pushinteger (lua_State *L, lua_Integer n)
 {
     lua_lock(L);
@@ -1104,7 +1104,7 @@ LUA_API int lua_pcallk (lua_State *L, int nargs, int nresults, int errfunc,
     return status;
 }
 
-
+/* 加载配置信息 */
 LUA_API int lua_load (lua_State *L, lua_Reader reader, void *data,
                       const char *chunkname, const char *mode)
 {

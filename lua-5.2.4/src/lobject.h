@@ -485,9 +485,9 @@ typedef struct LocVar
 typedef struct Proto
 {
     CommonHeader;
-    /* 被函数使用的常量 */
+    /* 被函数使用的常量--也就是所谓的常量表 */
     TValue *k;  /* constants used by the function */
-    Instruction *code;
+    Instruction *code; /* 记录函数所生成的字节码 */
     /* 在函数中定义的函数 */
     struct Proto **p;  /* functions defined inside the function */
     int *lineinfo;  /* map from opcodes to source lines (debug information) */

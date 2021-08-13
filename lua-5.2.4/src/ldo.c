@@ -142,7 +142,7 @@ int luaD_rawrunprotected (lua_State *L, Pfunc f, void *ud)
     lj.previous = L->errorJmp;  /* chain new error handler */
     L->errorJmp = &lj;
     LUAI_TRY(L, &lj,
-             (*f)(L, ud);
+             (*f)(L, ud); /* 执行对应的函数 */
             );
     L->errorJmp = lj.previous;  /* restore old error handler */
     L->nCcalls = oldnCcalls;
@@ -156,6 +156,7 @@ static void correctstack (lua_State *L, TValue *oldstack)
 {
     CallInfo *ci;
     GCObject *up;
+    /* L->top原来指向老栈 */
     L->top = (L->top - oldstack) + L->stack;
     for (up = L->openupval; up != NULL; up = up->gch.next)
         gco2uv(up)->v = (gco2uv(up)->v - oldstack) + L->stack;
@@ -172,7 +173,9 @@ static void correctstack (lua_State *L, TValue *oldstack)
 /* some space for error handling */
 #define ERRORSTACKSIZE  (LUAI_MAXSTACK + 200)
 
-
+/* 栈扩展
+ * @param newsize 新栈的大小
+ */
 void luaD_reallocstack (lua_State *L, int newsize)
 {
     TValue *oldstack = L->stack;
@@ -235,7 +238,9 @@ void luaD_shrinkstack (lua_State *L)
         luaD_reallocstack(L, goodsize);  /* shrink it */
 }
 
-
+/* 钩子函数
+ *
+ */
 void luaD_hook (lua_State *L, int event, int line)
 {
     lua_Hook hook = L->hook;
@@ -249,7 +254,7 @@ void luaD_hook (lua_State *L, int event, int line)
         ar.currentline = line;
         ar.i_ci = ci;
         luaD_checkstack(L, LUA_MINSTACK);  /* ensure minimum stack size */
-        ci->top = L->top + LUA_MINSTACK;
+        ci->top = L->top + LUA_MINSTACK; /* 栈帧前移 */
         lua_assert(ci->top <= L->stack_last);
         L->allowhook = 0;  /* cannot call hooks inside a hook */
         ci->callstatus |= CIST_HOOKED;
@@ -258,7 +263,7 @@ void luaD_hook (lua_State *L, int event, int line)
         lua_lock(L);
         lua_assert(!L->allowhook);
         L->allowhook = 1;
-        ci->top = restorestack(L, ci_top);
+        ci->top = restorestack(L, ci_top); /* 恢复现场 */
         L->top = restorestack(L, top);
         ci->callstatus &= ~CIST_HOOKED;
     }
@@ -279,20 +284,23 @@ static void callhook (lua_State *L, CallInfo *ci)
     ci->u.l.savedpc--;  /* correct 'pc' */
 }
 
-
+/* 调整变长参数
+ * @param actual 实际参数的个数
+ */
 static StkId adjust_varargs (lua_State *L, Proto *p, int actual)
 {
     int i;
-    int nfixargs = p->numparams;
+    int nfixargs = p->numparams; /* 固定参数的个数 */
     StkId base, fixed;
     lua_assert(actual >= nfixargs);
     /* move fixed parameters to final position */
     luaD_checkstack(L, p->maxstacksize);  /* check again for new 'base' */
+    /* fixed指向第一个参数的位置 */
     fixed = L->top - actual;  /* first fixed argument */
     base = L->top;  /* final position of first argument */
-    for (i=0; i<nfixargs; i++)
+    for (i = 0; i < nfixargs; i++)
     {
-        setobjs2s(L, L->top++, fixed + i);
+        setobjs2s(L, L->top++, fixed + i); /* 这里复制参数 */
         setnilvalue(fixed + i);
     }
     return base;
@@ -311,23 +319,26 @@ static StkId tryfuncTM (lua_State *L, StkId func)
     incr_top(L);
     func = restorestack(L, funcr);  /* previous call may change stack */
     setobj2s(L, func, tm);  /* tag method is the new function to be called */
-    return func;
+    return func; /* 获取到真正的调用函数 */
 }
 
 
-
+/* 进入下一层调用 */
 #define next_ci(L) (L->ci = (L->ci->next ? L->ci->next : luaE_extendCI(L)))
 
 
 /*
 ** returns true if function has been executed (C function)
+** 执行调用 precall
+* @param func 要执行的函数
+* @param nresults 返回值的个数
 */
 int luaD_precall (lua_State *L, StkId func, int nresults)
 {
     lua_CFunction f;
     CallInfo *ci;
     int n;  /* number of arguments (Lua) or returns (C) */
-    ptrdiff_t funcr = savestack(L, func);
+    ptrdiff_t funcr = savestack(L, func); /* 保存偏移 */
     switch (ttype(func))
     {
         case LUA_TLCF:  /* light C function */
@@ -338,10 +349,11 @@ int luaD_precall (lua_State *L, StkId func, int nresults)
             f = clCvalue(func)->f;
         Cfunc:
             luaD_checkstack(L, LUA_MINSTACK);  /* ensure minimum stack size */
+            /* 进入到下一层函数,记录下callinfo */
             ci = next_ci(L);  /* now 'enter' new function */
-            ci->nresults = nresults;
-            ci->func = restorestack(L, funcr);
-            ci->top = L->top + LUA_MINSTACK;
+            ci->nresults = nresults; /* 记录下返回值个数 */
+            ci->func = restorestack(L, funcr); /* 需要执行的函数 */
+            ci->top = L->top + LUA_MINSTACK;  /* 设置好数据栈的栈顶 */
             lua_assert(ci->top <= L->stack_last);
             ci->callstatus = 0;
             luaC_checkGC(L);  /* stack grow uses memory */
@@ -358,13 +370,14 @@ int luaD_precall (lua_State *L, StkId func, int nresults)
         {
             StkId base;
             Proto *p = clLvalue(func)->p;
+            /* 实际参数的个数 */
             n = cast_int(L->top - func) - 1;  /* number of real arguments */
             luaD_checkstack(L, p->maxstacksize);
-            for (; n < p->numparams; n++)
+            for (; n < p->numparams; n++) /* 没有参数直接填NULL */
                 setnilvalue(L->top++);  /* complete missing arguments */
             if (!p->is_vararg)
             {
-                func = restorestack(L, funcr);
+                func = restorestack(L, funcr); /* 获得对应的函数 */
                 base = func + 1;
             }
             else
@@ -374,8 +387,8 @@ int luaD_precall (lua_State *L, StkId func, int nresults)
             }
             ci = next_ci(L);  /* now 'enter' new function */
             ci->nresults = nresults;
-            ci->func = func;
-            ci->u.l.base = base;
+            ci->func = func; /* 需要调用的函数 */
+            ci->u.l.base = base; /* 栈顶 */
             ci->top = base + p->maxstacksize;
             lua_assert(ci->top <= L->stack_last);
             ci->u.l.savedpc = p->code;  /* starting point */
@@ -394,7 +407,9 @@ int luaD_precall (lua_State *L, StkId func, int nresults)
     }
 }
 
-
+/* 做数据栈的调整工作 -- postcall
+ * @param firstResult 第一个返回结果
+ */
 int luaD_poscall (lua_State *L, StkId firstResult)
 {
     StkId res;
@@ -411,7 +426,8 @@ int luaD_poscall (lua_State *L, StkId firstResult)
         L->oldpc = ci->previous->u.l.savedpc;  /* 'oldpc' for caller function */
     }
     res = ci->func;  /* res == final position of 1st result */
-    wanted = ci->nresults;
+    wanted = ci->nresults; /* 返回参数的个数 */
+    /* 退栈 */
     L->ci = ci = ci->previous;  /* back to caller */
     /* move results to correct place */
     for (i = wanted; i != 0 && firstResult < L->top; i--)
@@ -428,6 +444,11 @@ int luaD_poscall (lua_State *L, StkId firstResult)
 ** The arguments are on the stack, right after the function.
 ** When returns, all the results are on the stack, starting at the original
 ** function position.
+** 执行一个函数(c或者lua), 参数在栈上,函数下面就是参数
+** 返回的时候,返回值在函数下边
+* @param func 要执行的函数
+* @param nResults 返回值的个数
+* @param allowyield 是否允许yield操作
 */
 void luaD_call (lua_State *L, StkId func, int nResults, int allowyield)
 {
@@ -663,7 +684,7 @@ int luaD_pcall (lua_State *L, Pfunc func, void *u,
     lu_byte old_allowhooks = L->allowhook;
     unsigned short old_nny = L->nny;
     ptrdiff_t old_errfunc = L->errfunc;
-    L->errfunc = ef;
+    L->errfunc = ef; /* 错误处理函数 */
     status = luaD_rawrunprotected(L, func, u);
     if (status != LUA_OK)    /* an error occurred? */
     {

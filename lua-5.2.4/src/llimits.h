@@ -130,7 +130,7 @@ typedef LUAI_UACNUMBER l_uacNumber;
 ** type for virtual-machine instructions
 ** must be an unsigned with (at least) 4 bytes (see details in lopcodes.h)
 */
-typedef lu_int32 Instruction;
+typedef lu_int32 Instruction; /* 指令 */
 
 
 

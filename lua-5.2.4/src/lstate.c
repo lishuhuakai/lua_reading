@@ -136,7 +136,7 @@ void luaE_freeCI (lua_State *L)
     }
 }
 
-/* 堆栈初始化
+/* 堆栈初始化(数据栈)
  * @param L1
  */
 static void stack_init (lua_State *L1, lua_State *L)
@@ -149,7 +149,7 @@ static void stack_init (lua_State *L1, lua_State *L)
     for (i = 0; i < BASIC_STACK_SIZE; i++)
         setnilvalue(L1->stack + i);  /* erase new stack */
     L1->top = L1->stack; /* 指向栈顶 */
-    L1->stack_last = L1->stack + L1->stacksize - EXTRA_STACK;
+    L1->stack_last = L1->stack + L1->stacksize - EXTRA_STACK; /* 指向栈的尾部 */
     /* initialize first ci */
     ci = &L1->base_ci;
     ci->next = ci->previous = NULL;
@@ -252,7 +252,9 @@ static void close_state (lua_State *L)
     (*g->frealloc)(g->ud, fromstate(L), sizeof(LG), 0);  /* free main block */
 }
 
-
+/* 创建一个lua线程
+ *
+ */
 LUA_API lua_State *lua_newthread (lua_State *L)
 {
     lua_State *L1;

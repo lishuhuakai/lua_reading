@@ -10,7 +10,7 @@
 #include "llimits.h"
 #include "lobject.h"
 #include "lzio.h"
-
+/* 语法分析器 */
 
 /*
 ** Expression descriptor
@@ -19,18 +19,22 @@
 typedef enum
 {
     VVOID,    /* no value */
-    VNIL,
-    VTRUE,
-    VFALSE,
-    VK,       /* info = index of constant in `k' */
-    VKNUM,    /* nval = numerical value */
+    VNIL,     /* 值为nil */
+    VTRUE,    /* 值为true */
+    VFALSE,   /* 值为false */
+    VK,       /* info = index of constant in `k' -- 值在常量表中 */
+    VKNUM,    /* nval = numerical value -- 表达式为常量值 */
+    /* 表达式结果已经加载至寄存器,可以通过u.info来访问该寄存器 */
     VNONRELOC,    /* info = result register */
     VLOCAL,   /* info = local register */
     VUPVAL,       /* info = index of upvalue in 'upvalues' */
     VINDEXED, /* t = table register/upvalue; idx = index R/K */
     VJMP,     /* info = instruction pc */
+    /* 表达式的结果需要加载至寄存器中 */
     VRELOCABLE,   /* info = instruction pc */
+    /* 表达式对应一个函数调用 */
     VCALL,    /* info = instruction pc */
+    /* 表达式对应可变参数 */
     VVARARG   /* info = instruction pc */
 } expkind;
 
@@ -38,9 +42,10 @@ typedef enum
 #define vkisvar(k)  (VLOCAL <= (k) && (k) <= VINDEXED)
 #define vkisinreg(k)    ((k) == VNONRELOC || (k) == VLOCAL)
 
+/* 表达式的描述 */
 typedef struct expdesc
 {
-    expkind k;
+    expkind k;  /* 类型 */
     union
     {
         struct    /* for indexed variables (VINDEXED) */
@@ -102,7 +107,8 @@ struct BlockCnt;  /* defined in lparser.c */
 
 
 /* state needed to generate code for a given function */
-typedef struct FuncState
+/* 用于生成指令的辅助结构,每一个函数都会使用这样一个结构 */
+typedef struct FuncState 
 {
     Proto *f;  /* current function header */
     Table *h;  /* table to find (and reuse) elements in `k' */

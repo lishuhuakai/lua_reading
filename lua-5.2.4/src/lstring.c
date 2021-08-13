@@ -30,7 +30,7 @@
 /*
 ** equality for long strings
 */
-int luaS_eqlngstr (TString *a, TString *b)
+int luaS_eqlngstr (TString *a, TString *b) /* 长字符的比较 */
 {
     size_t len = a->tsv.len;
     lua_assert(a->tsv.tt == LUA_TLNGSTR && b->tsv.tt == LUA_TLNGSTR);
@@ -45,6 +45,7 @@ int luaS_eqlngstr (TString *a, TString *b)
 */
 int luaS_eqstr (TString *a, TString *b)
 {
+    /* 主要分为短字符和长字符 */
     return (a->tsv.tt == b->tsv.tt) &&
            (a->tsv.tt == LUA_TSHRSTR ? eqshrstr(a, b) : luaS_eqlngstr(a, b));
 }
@@ -63,6 +64,7 @@ unsigned int luaS_hash (const char *str, size_t l, unsigned int seed)
 
 /*
 ** resizes the string table
+** 重新调整字符hash表的大小
 */
 void luaS_resize (lua_State *L, int newsize)
 {
@@ -102,6 +104,7 @@ void luaS_resize (lua_State *L, int newsize)
 
 /*
 ** creates a new string object
+** 创建一个新的字符object
 */
 static TString *createstrobj (lua_State *L, const char *str, size_t l,
                               int tag, unsigned int h, GCObject **list)
@@ -121,6 +124,7 @@ static TString *createstrobj (lua_State *L, const char *str, size_t l,
 
 /*
 ** creates a new short string, inserting it into string table
+** 创建一个新的短字符
 */
 static TString *newshrstr (lua_State *L, const char *str, size_t l,
                            unsigned int h)
@@ -139,12 +143,13 @@ static TString *newshrstr (lua_State *L, const char *str, size_t l,
 
 /*
 ** checks whether short string exists and reuses it or creates a new one
+** 短字符串的内部化
 */
 static TString *internshrstr (lua_State *L, const char *str, size_t l)
 {
     GCObject *o;
     global_State *g = G(L);
-    unsigned int h = luaS_hash(str, l, g->seed);
+    unsigned int h = luaS_hash(str, l, g->seed); /* 计算出hash值 */
     for (o = g->strt.hash[lmod(h, g->strt.size)];
          o != NULL;
          o = gch(o)->next)
@@ -152,7 +157,7 @@ static TString *internshrstr (lua_State *L, const char *str, size_t l)
         TString *ts = rawgco2ts(o);
         if (h == ts->tsv.hash &&
             l == ts->tsv.len &&
-            (memcmp(str, getstr(ts), l * sizeof(char)) == 0))
+            (memcmp(str, getstr(ts), l * sizeof(char)) == 0)) /* 如果相等 */
         {
             if (isdead(G(L), o))  /* string is dead (but was not collected yet)? */
                 changewhite(o);  /* resurrect it */
@@ -187,7 +192,7 @@ TString *luaS_new (lua_State *L, const char *str)
     return luaS_newlstr(L, str, strlen(str));
 }
 
-
+/* 创建新的udata */
 Udata *luaS_newudata (lua_State *L, size_t s, Table *e)
 {
     Udata *u;
@@ -196,7 +201,7 @@ Udata *luaS_newudata (lua_State *L, size_t s, Table *e)
     u = &luaC_newobj(L, LUA_TUSERDATA, sizeof(Udata) + s, NULL, 0)->u;
     u->uv.len = s;
     u->uv.metatable = NULL;
-    u->uv.env = e;
+    u->uv.env = e; /* 环境变量? */
     return u;
 }
 

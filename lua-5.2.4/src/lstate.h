@@ -63,14 +63,65 @@ typedef struct stringtable
     int size;
 } stringtable;
 
+/**----------------------------------------------------------------------------
+源程序如下:
+
+function f2(arg1, arg2, ..., argN)
+  local local1, local2, ...
+  ...
+  return ret1, ret2, ..., retO
+end
+
+function f1(arg1, arg2, ..., argM)
+  local local1, local2, ...
+  ...
+  local ret1, ret2, ..., retP = f2(arg1, arg2, ..., argN)
+  ...
+end
+
+运行过程的数据堆栈:
+
+stack
+|
+| time: >>>> call >>>>>>>>>>>>>>>>>> call ~~~~~~~~~~~~~~~~~~ return >>>>>
+|
+|   ciX.func-> f1      f1      f1                                 f1
+|   ciX.base-> arg1    arg1    arg1                               arg1
+|              arg2    arg2    arg2                               arg2
+|              ...     ...     ...                                ...
+|              argM    argM    argM                               argM
+|   ciX.topC->         local1  local1                             local11
+|                      local2  local2                             local2
+|                      local3  local3                             local3
+|                      ...     ...                                ...
+|                              f2      ciY.func-> f2      f2      ret1
+|                              arg1    ciY.base-> arg1    arg1    ret2
+|                              arg2               arg2    arg2    ...
+|                              ...                ...     ...     retP
+|                              argN               argN    argN
+|   ciX.topL-> ------  ------  ------  ciY.topC-> local1  local1
+|                                                 local2  local2
+|                                                 ...     ...
+|                                                         ret1
+|                                                         ret2
+|                                                         ...
+|                                                         retO
+|                                      ciY.topL-> ------  ------
+V
+
+------------------------------------------------------------------------------------*/
+
 
 /*
 ** information about a call
 */
 typedef struct CallInfo   /* 调用信息 */
 {
+    /* func指向正在执行的函数在数据栈上的位置 */
     StkId func;  /* function index in the stack */
+    /* top为被调用函数所允许使用栈空间的上限值 */
     StkId top;  /* top for this function */
+    /* CallInfo构成调用链表 */
     struct CallInfo *previous, *next;  /* dynamic call link */
     short nresults;  /* expected number of results from this function */
     lu_byte callstatus;/* 状态标识 */
@@ -79,6 +130,7 @@ typedef struct CallInfo   /* 调用信息 */
     {
         struct    /* only for Lua functions */
         {
+            /* base是栈顶指针 */
             StkId base;  /* base for this function */
             const Instruction *savedpc;
         } l;
@@ -161,6 +213,7 @@ struct lua_State
 {
     CommonHeader;
     lu_byte status;
+    /* top类似于栈帧的指针 */
     StkId top;  /* first free slot in the stack */
     global_State *l_G;
     CallInfo *ci;  /* call info for current function */
@@ -183,6 +236,7 @@ struct lua_State
 };
 
 
+/* 访问全局数据global_State */
 #define G(L)    (L->l_G)
 
 

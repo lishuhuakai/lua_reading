@@ -27,6 +27,7 @@ typedef struct Mbuffer
     size_t buffsize;
 } Mbuffer;
 
+/* 缓存初始化 */
 #define luaZ_initbuffer(L, buff) ((buff)->buffer = NULL, (buff)->buffsize = 0)
 
 #define luaZ_buffer(buff)   ((buff)->buffer)
@@ -35,7 +36,7 @@ typedef struct Mbuffer
 
 #define luaZ_resetbuffer(buff) ((buff)->n = 0)
 
-
+/* 构建一个buffer */
 #define luaZ_resizebuffer(L, buff, size) \
     (luaM_reallocvector(L, (buff)->buffer, (buff)->buffsize, size, char), \
     (buff)->buffsize = size)
