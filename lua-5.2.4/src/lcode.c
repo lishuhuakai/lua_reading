@@ -209,7 +209,10 @@ static void dischargejpc (FuncState *fs)
     fs->jpc = NO_JUMP;
 }
 
-
+/* 将跳转指令的目的地都设置为target
+ * @param target 跳转目的地
+ * @param list 待修正的跳转指令构成的链表
+ */
 void luaK_patchlist (FuncState *fs, int list, int target)
 {
     if (target == fs->pc)
@@ -222,6 +225,10 @@ void luaK_patchlist (FuncState *fs, int list, int target)
 }
 
 
+/* 修正跳转指令
+ * @param list 待修正的指令构建成的链表
+ * @param level 跳转位置
+ */
 LUAI_FUNC void luaK_patchclose (FuncState *fs, int list, int level)
 {
     level++;  /* argument is +1 to reserve 0 as non-op */
@@ -339,7 +346,9 @@ void luaK_checkstack (FuncState *fs, int n)
     }
 }
 
-
+/* 调整寄存器标号,预先分配n个寄存器
+ * @param n 预分配的寄存器的个数
+ */
 void luaK_reserveregs (FuncState *fs, int n)
 {
     luaK_checkstack(fs, n);
@@ -356,7 +365,9 @@ static void freereg (FuncState *fs, int reg)
     }
 }
 
-/* 将表达式的值从寄存器中移除 */
+/* 将表达式的值从寄存器中移除,前提是表达式的值已经位于寄存器中
+ *
+ */
 static void freeexp (FuncState *fs, expdesc *e)
 {
     if (e->k == VNONRELOC)
@@ -456,14 +467,14 @@ void luaK_setreturns (FuncState *fs, expdesc *e, int nresults)
 {
     if (e->k == VCALL)    /* expression is an open function call? */
     { /* y(1,2,3) */
-        /* OP_CALL A B C  R(A), ... ,R(A+C-2) := R(A)(R(A+1), ... ,R(A+B-1)) 
-         * A 函数, B+1 参数个数 C+1 返回值个数 
+        /* OP_CALL A B C  R(A), ... ,R(A+C-2) := R(A)(R(A+1), ... ,R(A+B-1))
+         * A 函数, B+1 参数个数 C+1 返回值个数
          */
         SETARG_C(getcode(fs, e), nresults+1);
     }
     else if (e->k == VVARARG)
     {
-        /* OP_VARARG  A B R(A), R(A+1), ..., R(A+B-1) = vararg  
+        /* OP_VARARG  A B R(A), R(A+1), ..., R(A+B-1) = vararg
          * 从可变参数中加载B-1个到以编号A开始的寄存器中
          */
         SETARG_B(getcode(fs, e), nresults+1); /* nresults个值 */
@@ -542,7 +553,7 @@ static int code_label (FuncState *fs, int A, int b, int jump)
 }
 
 /* 将表达式e安置到寄存器(标号为reg)之中
- *
+ * 如果e已经位于寄存器之中,但是寄存器并非reg,需要执行move操作
  */
 static void discharge2reg (FuncState *fs, expdesc *e, int reg)
 {
@@ -581,7 +592,7 @@ static void discharge2reg (FuncState *fs, expdesc *e, int reg)
         }
         case VNONRELOC:
         {
-            if (reg != e->u.info)
+            if (reg != e->u.info) /* e在另外一个寄存器之中,执行move操作 */
                 luaK_codeABC(fs, OP_MOVE, reg, e->u.info, 0);
             break;
         }
@@ -635,12 +646,17 @@ static void exp2reg (FuncState *fs, expdesc *e, int reg)
     e->k = VNONRELOC; /* 已经加载至寄存器 */
 }
 
-
+/* 将表达式计算出的结果加载至下一个寄存器
+ * @param e 表达式
+ */
 void luaK_exp2nextreg (FuncState *fs, expdesc *e)
 {
+    /* 计算exp的值 */
     luaK_dischargevars(fs, e);
     freeexp(fs, e);
-    luaK_reserveregs(fs, 1);
+    /* 如果表达式计算出多个值,怎么办? */
+    luaK_reserveregs(fs, 1); /* 保留一个寄存器 */
+    /* 将exp计算后的值加载至对应的寄存器 */
     exp2reg(fs, e, fs->freereg - 1);
 }
 
@@ -725,13 +741,13 @@ void luaK_storevar (FuncState *fs, expdesc *var, expdesc *ex)
 {
     switch (var->k)
     {
-        case VLOCAL:
+        case VLOCAL: /* 局部变量 */
         {
             freeexp(fs, ex);
             exp2reg(fs, ex, var->u.info);
             return;
         }
-        case VUPVAL:
+        case VUPVAL: /* upvalue */
         {
             int e = luaK_exp2anyreg(fs, ex);
             /* 寄存器的值放入upvalue之中 */
@@ -751,6 +767,7 @@ void luaK_storevar (FuncState *fs, expdesc *var, expdesc *ex)
             break;
         }
     }
+    /* 很重要的一个步骤就是调整好寄存器,使得寄存器分配不过多,也不过少 */
     freeexp(fs, ex);
 }
 

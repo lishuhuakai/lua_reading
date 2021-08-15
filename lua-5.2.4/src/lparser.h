@@ -108,7 +108,7 @@ struct BlockCnt;  /* defined in lparser.c */
 
 /* state needed to generate code for a given function */
 /* 用于生成指令的辅助结构,每一个函数都会使用这样一个结构 */
-typedef struct FuncState 
+typedef struct FuncState
 {
     Proto *f;  /* current function header */
     Table *h;  /* table to find (and reuse) elements in `k' */
@@ -120,7 +120,9 @@ typedef struct FuncState
     int jpc;  /* list of pending jumps to `pc' */
     int nk;  /* number of elements in `k' */
     int np;  /* number of elements in `p' */
+    /* 局部变量 */
     int firstlocal;  /* index of first local var (in Dyndata array) */
+    /* 局部变量的个数 */
     short nlocvars;  /* number of elements in 'f->locvars' */
     lu_byte nactvar;  /* number of active local variables */
     lu_byte nups;  /* number of upvalues */
